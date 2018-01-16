@@ -7,6 +7,7 @@
 #include "TH2D.h"
 #include "TSpline.h"
 #include "TGraph.h"
+#include "math.h"
 
 using namespace std;
 
@@ -36,13 +37,13 @@ void unfold(TFile* histos)
 
     //SetUp Unfolding
     Double_t biasScale=0;
-    TUnfoldDensity unfold(A_pt,TUnfold::kHistMapOutputVert);
+    TUnfoldDensity unfold(A_pt,TUnfold::kHistMapOutputVert,TUnfold::kRegModeDerivative);
     unfold.SetInput(h_pt_dummyData);
 
     //find best tau
-    Int_t nScan=50;
-    Double_t tauMin=0.0;
-    Double_t tauMax=0.0;
+    Int_t nScan=40;
+    Double_t tauMin=pow(10,-2);
+    Double_t tauMax=pow(10,2);
     Int_t iBest;
     TSpline *scanResult=0;
     TGraph *lCurve=0;
