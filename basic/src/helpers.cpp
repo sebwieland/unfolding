@@ -81,7 +81,7 @@ TLegend* getLegend() {
 }
 void Draw1D(TH1* hist, TString name, TString xlabel, TString ylabel) {
 	TFile *output = new TFile("output.root", "update");
-	TCanvas* c = getCanvas(name,false);
+	TCanvas* c = getCanvas(name, false);
 
 	hist->Draw("histe");
 	hist->SetTitle(name);
@@ -92,8 +92,8 @@ void Draw1D(TH1* hist, TString name, TString xlabel, TString ylabel) {
 	else hist-> SetXTitle(xlabel);
 	hist->SetYTitle(ylabel);
 
-	c->SaveAs("pdfs/"+ name + ".pdf");
-	c->SaveAs("pdfs/"+ name + ".png");
+	c->SaveAs("pdfs/" + name + ".pdf");
+	c->SaveAs("pdfs/" + name + ".png");
 	c->Write();
 	output->Close();
 }
@@ -117,15 +117,15 @@ void Draw2D(TH2* hist, TString name, bool log, TString xlabel, TString ylabel) {
 	}
 	else hist-> SetYTitle(ylabel);
 
-	c->SaveAs("pdfs/"+ name + ".pdf");
-	c->SaveAs("pdfs/"+ name + ".png");
+	c->SaveAs("pdfs/" + name + ".pdf");
+	c->SaveAs("pdfs/" + name + ".png");
 	c->Write();
 	output->Close();
 }
 
 void DrawRatio(TH1* hist1, TH1* hist2, TString name, TString xlabel, TString ylabel) {
 	TFile *output = new TFile("output.root", "update");
-	TCanvas* c = getCanvas(name,false);
+	TCanvas* c = getCanvas(name, false);
 	TH1F* ratio = (TH1F*) hist1->Clone();
 	ratio->Divide(hist2);
 	ratio->Draw("histe");
@@ -142,8 +142,8 @@ void DrawRatio(TH1* hist1, TH1* hist2, TString name, TString xlabel, TString yla
 	line->SetLineColor(kRed);
 	line->Draw();
 
-	c->SaveAs("pdfs/"+ name + ".pdf");
-	c->SaveAs("pdfs/"+ name + ".png");
+	c->SaveAs("pdfs/" + name + ".pdf");
+	c->SaveAs("pdfs/" + name + ".png");
 	c->Write();
 	output->Close();
 }
@@ -211,8 +211,40 @@ void DrawDataMC(TH1* data, std::vector<TH1*> MC, std::vector<std::string> names,
 	c->cd(1);
 
 
-	c->SaveAs("pdfs/"+ name + "_stacked.pdf");
-	c->SaveAs("pdfs/"+ name + "_stacked.png");
+	c->SaveAs("pdfs/" + name + "_stacked.pdf");
+	c->SaveAs("pdfs/" + name + "_stacked.png");
 	c->Write();
+	output->Close();
+}
+
+
+void VisualizeTau(int nScan, int iBest, TSpline* scanResult, TGraph*lCurve, TString name) {
+	// int iBest = get<0>(tuple);
+	// TSpline* scanResult = get<1>(tuple);
+	// TGraph* lCurve = get<2>(tuple);
+
+	//Graphs to Visualize best choice of Tau
+	Double_t t[1], rho[1], x[1], y[1];
+	scanResult->GetKnot(iBest, t[0], rho[0]);
+	lCurve->GetPoint(iBest, x[0], y[0]);
+	TGraph *bestRhoLogTau = new TGraph(1, t, rho);
+	TGraph *bestLCurve = new TGraph(1, x, y);
+	Double_t *tAll = new Double_t[nScan], *rhoAll = new Double_t[nScan];
+	for (Int_t i = 0; i < nScan; i++) {
+		scanResult->GetKnot(i, tAll[i], rhoAll[i]);
+	}
+	TGraph *knots = new TGraph(nScan, tAll, rhoAll);
+
+	TFile *output = new TFile("output.root", "UPDATE");
+	//Draw Tau Graphs
+	TCanvas* tau = new TCanvas("tau_" + name, "tau_" + name);
+	tau->cd();
+	scanResult->Draw();
+	knots->Draw("*");
+	bestRhoLogTau->SetMarkerColor(kRed);
+	bestRhoLogTau->Draw("*");
+	tau->SaveAs("pdfs/" + name + ".pdf");
+	tau->SaveAs("pdfs/" + name + ".png");
+	tau->Write();
 	output->Close();
 }

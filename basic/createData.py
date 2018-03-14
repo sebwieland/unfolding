@@ -19,7 +19,7 @@ def GenerateEvent(tau, minpt, maxpt, resA, resB):
 
     # smearing in Pt with large asymmetric tail
     sigma = math.sqrt(resA*resA*ptGen+resB*resB*(ptGen*ptGen))
-    ptObs = rnd.BreitWigner(ptGen, 1/sigma)
+    ptObs = rnd.BreitWigner(ptGen, sigma)
 
     pt = [ptGen, ptObs]
     return pt
@@ -36,8 +36,8 @@ tauMC = -1.5 	 # MC exponent
 tauData = -1.5	 # Data exponent (steeper to illustrate Bin-by-Bin bias ??)
 minpt = 100  # gen MinPt-Cut
 maxpt = 800  # max MinPt-Cut
-resA = 0.002  # resA = resolution paramater ~ sqrt(pt)
-resB = 0.001 # resB = resolution paramater ~ pt
+resA = 0.9  # resA = resolution paramater ~ sqrt(pt)
+resB = 0.2 # resB = resolution paramater ~ pt
 
 
 # print GenerateEvent(tauMC, minpt, maxpt, resA, resB)
