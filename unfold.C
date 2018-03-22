@@ -13,6 +13,16 @@
 
 using namespace std;
 
+template<typename T>
+std::vector<T> to_array(const std::string& s)
+{
+  std::vector<T> result;
+  std::stringstream ss(s);
+  std::string item;
+  while(std::getline(ss, item, ',')) result.push_back(boost::lexical_cast<T>(item));
+  return result;
+}
+
 void unfold(TFile* histos)
 {
 	gStyle->SetStatY(0.9);
