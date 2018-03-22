@@ -3,6 +3,20 @@ import math
 
 rnd = TRandom3()
 
+gROOT.ProcessLine(
+"struct MyStructGen {\
+   float     val;\
+};" );
+
+gROOT.ProcessLine(
+"struct MyStructReco {\
+   float     val;\
+};" );
+
+gROOT.ProcessLine(
+"struct MyStructdata {\
+   float     val;\
+};" );
 
 def GenerateEvent(tau, minpt, maxpt, res):
         # generate Pt according to distribution  pow(ptGen,tau)
@@ -45,6 +59,8 @@ res = (xMax-xMin)/(0.5*nBinsReco) # resA = resolution paramater ~ sqrt(pt)
 
 
 
+nEvents = 1000000
+
 h_Data = TH1F("h_Data", "h_Data", nBinsReco, xMin, xMax)
 h_Data.Sumw2()
 h_Reco = TH1F("h_Reco", "h_Reco", nBinsReco, xMin, xMax)
@@ -57,8 +73,25 @@ MigrationMatrix.Sumw2()
 MigrationMatrixSquare = TH2F("MigrationMatrixSquare", "MigrationMatrixSquare",
                              5, xMin, xMax, 5, xMin, xMax)
 MigrationMatrixSquare.Sumw2()
+reco=1
+gen=1
+data=1
 
-nEvents = 100000
+from ROOT import MyStructGen
+from ROOT import MyStructReco
+from ROOT import MyStructdata
+
+MyStructReco = MyStructReco()
+MyStructGen = MyStructGen()
+MyStructdata = MyStructdata()
+
+
+TreeFile = TFile("TreeFile.root", "RECREATE");
+Tree = TTree("Tree", "Tree");
+branchReco = Tree.Branch("Reco", MyStructReco, "Reco/F");
+branchGen = Tree.Branch("Gen", MyStructGen, "Gen/F");
+branchdata = Tree.Branch("data", MyStructdata, "data/F");
+
 
 for i in range(nEvents):
     MCevent = GenerateEvent(tauMC, minpt, maxpt, res)
@@ -68,7 +101,14 @@ for i in range(nEvents):
     h_Data.Fill(Dataevent[1])
     MigrationMatrix.Fill(MCevent[1], MCevent[0])
     MigrationMatrixSquare.Fill(MCevent[1], MCevent[0])
+    MyStructGen.val=MCevent[0]
+    MyStructReco.val=MCevent[1]
+    MyStructdata.val=MCevent[1]
+    Tree.Fill()
 
+
+Tree.Write();
+TreeFile.Close();
 
 histofile = TFile("histofile.root", "RECREATE")
 h_Gen.Write()
