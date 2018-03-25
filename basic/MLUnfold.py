@@ -1,19 +1,25 @@
+"""
+Initial import
+"""
 from __future__ import print_function
 from root_numpy import root2array, tree2array
 import ROOT
 
 
 
-
+"""
 #Get Data
+"""
 rfile = ROOT.TFile("TreeFile.root")
 intree = rfile.Get('Tree')
 intree.Print()
 # and convert the TTree into an array
 array = tree2array(intree,branches=["Gen","Reco","data"])
 array.dtype.names = ('reco', "gen", "data")
-
+"""
 #Plot Data
+
+"""
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import numpy as np
@@ -42,18 +48,29 @@ plt.colorbar()
 plt.savefig("plots/data.pdf")
 # plt.show()
 
-
+"""
 #Do unfolding using NN
+"""
+"""
+basic params
+"""
+
 batch_size = 500
 num_classes = NBins
 epochs = 10
 
+"""
+#Keras Imports
+"""
 import keras
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.models import Sequential
 from keras.layers import Dense,Flatten
 
+"""
+#convert to categorical
+"""
 gen=df["gen"].values
 # print(gen)
 # print(gen.shape)
@@ -72,7 +89,9 @@ gcat = keras.utils.to_categorical(g,NBins)
 from sklearn.model_selection import train_test_split
 r = r.reshape(r.shape[0],1,1)
 r_train, r_test, g_train, g_test = train_test_split(r, gcat, test_size=0.2, random_state=42)
-
+"""
+#prepare model
+"""
 
 def prepareModel(nvar=1, NBins=NBins, kappa=8):
     ''' Prepare KERAS-based sequential neural network with for ML unfolding. 
@@ -93,24 +112,27 @@ def prepareModel(nvar=1, NBins=NBins, kappa=8):
     return model
 model = prepareModel(1,NBins)
 
-
+"""
+#fit model
+"""
 
 CallBack=keras.callbacks.TensorBoard(log_dir='./logs', histogram_freq=0, batch_size=32, write_graph=True, write_grads=False, write_images=False, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None)
-
 h = model.fit(r_train,g_train,batch_size=batch_size,epochs=epochs,verbose=1,validation_data=(r_test,g_test), callbacks=[CallBack])
 
-
-
-# save model,if needed
+"""
+save model
+"""
 model.save("model.hdf5")
 
-
-
-
-
+"""
+evaluate model 
+"""
 loss_and_metrics = model.evaluate(r_test, g_test, batch_size=128)
 print(loss_and_metrics)
 
+"""
+test predictions
+"""
 
 prob = model.predict(r_test, batch_size=128)
 classes=prob.argmax(axis=-1)

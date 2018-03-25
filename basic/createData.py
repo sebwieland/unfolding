@@ -18,6 +18,11 @@ gROOT.ProcessLine(
    float     val;\
 };" );
 
+gROOT.ProcessLine(
+"struct MyStructdataGen {\
+   float     val;\
+};" );
+
 def GenerateEvent(tau, minpt, maxpt, res):
         # generate Pt according to distribution  pow(ptGen,tau)
         # resA = resolution paramater ~ sqrt(pt)
@@ -33,9 +38,9 @@ def GenerateEvent(tau, minpt, maxpt, res):
 
     # smearing in Pt 
     ptObs = rnd.Gaus(ptGen, res)
-
     pt = [ptGen, ptObs]
-    return pt
+    if (ptGen>0 and ptObs >0): return pt
+    else: return [0,0]
 
 
 def GenerateEventMass(mass, res):
@@ -54,9 +59,6 @@ tauData = -1.5   # Data exponent (steeper to illustrate Bin-by-Bin bias ??)
 minpt = 100  # gen MinPt-Cut
 maxpt = 800  # max MinPt-Cut
 res = (xMax-xMin)/(0.5*nBinsReco) # resA = resolution paramater ~ sqrt(pt)
-
-
-
 
 
 nEvents = 1000000
@@ -80,10 +82,14 @@ data=1
 from ROOT import MyStructGen
 from ROOT import MyStructReco
 from ROOT import MyStructdata
+from ROOT import MyStructdataGen
+
 
 MyStructReco = MyStructReco()
 MyStructGen = MyStructGen()
 MyStructdata = MyStructdata()
+MyStructdataGen = MyStructdataGen()
+
 
 
 TreeFile = TFile("TreeFile.root", "RECREATE");
@@ -91,6 +97,7 @@ Tree = TTree("Tree", "Tree");
 branchReco = Tree.Branch("Reco", MyStructReco, "Reco/F");
 branchGen = Tree.Branch("Gen", MyStructGen, "Gen/F");
 branchdata = Tree.Branch("data", MyStructdata, "data/F");
+branchdata = Tree.Branch("dataGen", MyStructdataGen, "dataGen/F");
 
 
 for i in range(nEvents):
@@ -104,6 +111,7 @@ for i in range(nEvents):
     MyStructGen.val=MCevent[0]
     MyStructReco.val=MCevent[1]
     MyStructdata.val=MCevent[1]
+    MyStructdataGen.val=MCevent[0]
     Tree.Fill()
 
 
