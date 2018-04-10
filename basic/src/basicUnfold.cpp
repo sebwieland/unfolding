@@ -36,7 +36,7 @@ main(int argc, char* argv[])
 		TFile* inFile = TFile::Open("TreeFile.root", "OPEN");
 		TChain* chain = (TChain*) inFile->Get("Tree");
 
-		BinNumber binNumber = BinNumber(chain, {"Reco", "Gen"}, {10, 10}, {{0, 1000}, {0, 1000}});
+		BinNumber binNumber = BinNumber(chain, {"Gen"},{"Reco"}, {10, 10}, {{0, 1000}, {0, 1000}});
 		binNumber.BinVars();
 
 
@@ -56,13 +56,13 @@ main(int argc, char* argv[])
 		// Define the input variables used for the MVA training
 
 		//Spectators
-		dataloader->AddSpectator("Reco", 'F');
-		dataloader->AddSpectator("Gen", 'F');
+		//dataloader->AddSpectator("Reco_classes", 'F');
+		//dataloader->AddSpectator("Gen_classes", 'F');
 
 		// Read training and test data
 		// (it is also possible to use ASCII format as input -> see TMVA Users
 		// Guide)
-		TString fname = "TreeFile.root";
+		TString fname = "classes.root";
 		TFile* input = TFile::Open(fname);
 
 		std::cout << "--- TMVAClassification : Using input file: "
@@ -70,14 +70,14 @@ main(int argc, char* argv[])
 
 		// --- Register the training and test trees
 
-		TTree* signalTree = (TTree*)input->Get("Tree");
-		TTree* backgroundTree = (TTree*)input->Get("Tree");
+		TTree* signalTree = (TTree*)input->Get("Gen");
+		TTree* backgroundTree = (TTree*)input->Get("Reco");
 
 		dataloader->AddSignalTree(signalTree);
 		dataloader->AddBackgroundTree(backgroundTree);
 
 		// General layout.
-		TString layoutString("Layout=TANH|128,TANH|128,TANH|128,LINEAR");
+		TString layoutString("Layout=TANH|128,TANH|10,LINEAR");
 		// Training strategies.
 		TString training0("LearningRate=1e-1,Momentum=0.9,Repetitions=1,"
 		                  "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
@@ -105,10 +105,10 @@ main(int argc, char* argv[])
 		// factory->BookMethod(dataloader, TMVA::Types::kDNN, "DNN", stdOptions);
 		// Cuda implementation.
 		TString gpuOptions = dnnOptions + ":Architecture=GPU";
-		factory->BookMethod(dataloader, TMVA::Types::kDNN, "DNN GPU", gpuOptions);
+		//factory->BookMethod(dataloader, TMVA::Types::kDNN, "DNN GPU", gpuOptions);
 		// Multi-core CPU implementation.
 		TString cpuOptions = dnnOptions + ":Architecture=CPU";
-		// factory->BookMethod(dataloader, TMVA::Types::kDNN, "DNN CPU", cpuOptions);
+		factory->BookMethod(dataloader, TMVA::Types::kDNN, "DNN CPU", cpuOptions);
 
 		// For an example of the category classifier usage, see:
 		// TMVAClassificationCategory

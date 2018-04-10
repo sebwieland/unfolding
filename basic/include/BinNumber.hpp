@@ -9,11 +9,12 @@ class BinNumber
 {
 public:
 	TChain* chain;
-	std::vector<std::string> vars;
+	std::vector<std::string> genVars;
+	std::vector<std::string> recoVars;
 	std::vector<int> nBins;
 	std::vector<std::vector<int>> ranges;
+	BinNumber(TChain* InChain, std::vector<std::string> genvars,std::vector<std::string> recovars, std::vector<int> nbins, std::vector<std::vector<int>> Ranges);
 
-	BinNumber(TChain* InNtuple, std::vector<std::string> vars, std::vector<int> binwidths, std::vector<std::vector<int>> Ranges);
 	TFile* BinVars();
 
 
