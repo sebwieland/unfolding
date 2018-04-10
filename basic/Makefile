@@ -22,7 +22,7 @@ OBJECTS = $(SOURCES:$(SRC_PATH)/%.$(SRC_EXT)=$(BUILD_PATH)/%.o)
 DEPS = $(OBJECTS:.o=.d)
 
 # flags #
-COMPILE_FLAGS = -std=c++11 -Wall -Wextra -g  -std=c++17   `root-config --cflags --evelibs --libs --ldflags` -I `root-config --incdir` -lTMVA -lUnfold
+COMPILE_FLAGS = -std=c++11 -Wall -Wextra -g  -std=c++17   `root-config --cflags --evelibs --glibs --libs --ldflags` -I `root-config --incdir` -lTMVA -lUnfold
 INCLUDES = -I include/ -I /usr/local/include  -I `root-config --incdir`
 # Space-separated pkg-config libraries used by this project
 
