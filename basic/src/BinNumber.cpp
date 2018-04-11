@@ -3,12 +3,12 @@
 #include <TFile.h>
 
 
-BinNumber::BinNumber(TChain* InChain, std::vector<std::string> genvars,std::vector<std::string> recovars, std::vector<int> nbins, std::vector<std::vector<int>> Ranges) {
+BinNumber::BinNumber(TChain* InChain, std::vector<std::string> genvars, std::vector<std::string> recovars, std::vector<int> nbins, std::vector<std::vector<int>> Ranges) {
 	chain = InChain;
 	genVars = genvars;
 	recoVars = recovars;
 	ranges = Ranges;
-	for(auto& bin: nbins) nBins.push_back(bin+1);
+	for (auto& bin : nbins) nBins.push_back(bin + 1);
 }
 
 TFile* BinNumber::BinVars() {
@@ -19,40 +19,44 @@ TFile* BinNumber::BinVars() {
 	std::vector<TTreeReaderValue<Float_t>> GenValues;
 	std::vector<TTreeReaderValue<Float_t>> RecoValues;
 	std::vector<int> classvalsGen(genVars.size());
-	std::vector<int> classvalsReco(recoVars.size());
+	std::vector<std::vector<Float_t> > classvalsReco(genVars.size(), std::vector<Float_t> (nBins.at(0)));
 	std::vector<int> binWidths;
-
 	TTree* GenTree = new TTree("Gen", "Gen");
 	TTree* RecoTree = new TTree("Reco", "Reco");
+
 	int i = 0;
-	for (auto const& name : genVars) {
-		GenValues.push_back(TTreeReaderValue<Float_t>(theReader, name.c_str()));
-		TBranch *branch = GenTree->Branch((name + "_classes").c_str(), &classvalsGen.at(i), (name + "_classes" + "/I").c_str());
+	for (auto const& genName : genVars) { //index i
+		GenValues.push_back(TTreeReaderValue<Float_t>(theReader, genName.c_str()));
+		TBranch *branch = GenTree->Branch((genName + "_classes").c_str(), &classvalsGen.at(i), (genName + "_classes" + "/I").c_str());
 		binWidths.push_back((ranges[i][1] - ranges[i][0]) / nBins[i]);
+		int k = 0;
+
+		for (auto const& recoName : recoVars) { //index k
+			RecoValues.push_back(TTreeReaderValue<Float_t>(theReader, recoName.c_str()));
+			for (unsigned int j = 0; j < nBins.at(i); j++) {
+				TBranch *branch = RecoTree->Branch((recoName + "_class" + std::to_string(j)).c_str(), &classvalsReco[i][j], (recoName + "_class" + std::to_string(j) + "/F").c_str());
+			}
+			binWidths.push_back((ranges[i][1] - ranges[i][0]) / nBins[i]);
+			k++;
+		}
 		i++;
 	}
-	i=0;
-	for (auto const& name : recoVars) {
-		RecoValues.push_back(TTreeReaderValue<Float_t>(theReader, name.c_str()));
-		TBranch *branch = RecoTree->Branch((name + "_classes").c_str(), &classvalsReco.at(i), (name + "_classes" + "/I").c_str());
-		binWidths.push_back((ranges[i][1] - ranges[i][0]) / nBins[i]);
-		i++;
-	}
+	i = 0;
 
 
 	while (theReader.Next()) {
 		for (unsigned int i = 0; i < GenValues.size(); i++) {
 			// std::cout << *values.at(i) << std::endl;
-			int tmp = int(*GenValues.at(i)) / binWidths.at(i) + 1;
+			int classnumber = int(*GenValues.at(i)) / binWidths.at(i) + 1;
 			//std::cout << vars.at(i)  << *values.at(i) << " in bin: " << tmp << std::endl;
-			classvalsGen.at(i) = tmp;
+			classvalsGen.at(i) = classnumber;
+
+			for (unsigned int j = 0; j < RecoValues.size(); j++) {
+				Float_t tmp = (*RecoValues.at(i)) ;
+				classvalsReco[i][classnumber] = tmp;
+			}
 		}
-		for (unsigned int i = 0; i < RecoValues.size(); i++) {
-			// std::cout << *values.at(i) << std::endl;
-			int tmp = int(*RecoValues.at(i)) / binWidths.at(i) + 1;
-			//std::cout << vars.at(i)  << *values.at(i) << " in bin: " << tmp << std::endl;
-			classvalsReco.at(i) = tmp;
-		}
+
 		GenTree->Fill();
 		RecoTree->Fill();
 	}

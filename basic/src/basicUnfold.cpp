@@ -36,7 +36,7 @@ main(int argc, char* argv[])
 		TFile* inFile = TFile::Open("TreeFile.root", "OPEN");
 		TChain* chain = (TChain*) inFile->Get("Tree");
 
-		BinNumber binNumber = BinNumber(chain, {"Gen"},{"Reco"}, {10, 10}, {{0, 1000}, {0, 1000}});
+		BinNumber binNumber = BinNumber(chain, {"Gen"},{"Reco"}, {10}, {{0, 1000}, {0, 1000}});
 		binNumber.BinVars();
 
 
