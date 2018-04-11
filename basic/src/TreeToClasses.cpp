@@ -1,9 +1,9 @@
-#include "../include/BinNumber.hpp"
+#include "../include/TreeToClasses.hpp"
 #include <TTreeReader.h>
 #include <TFile.h>
 
 
-BinNumber::BinNumber(TChain* InChain, std::vector<std::string> genvars, std::vector<std::string> recovars, std::vector<int> nbins, std::vector<std::vector<int>> Ranges) {
+TreeToClasses::TreeToClasses(TChain* InChain, std::vector<std::string> genvars, std::vector<std::string> recovars, std::vector<int> nbins, std::vector<std::vector<int>> Ranges) {
 	chain = InChain;
 	genVars = genvars;
 	recoVars = recovars;
@@ -11,7 +11,7 @@ BinNumber::BinNumber(TChain* InChain, std::vector<std::string> genvars, std::vec
 	for (auto& bin : nbins) nBins.push_back(bin + 1);
 }
 
-TFile* BinNumber::BinVars() {
+TFile* TreeToClasses::BinVars() {
 	TFile* classfile = new TFile("classes.root", "RECREATE");
 	TTreeReader theReader(chain);
 
