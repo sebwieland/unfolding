@@ -2,6 +2,9 @@
 #include "TH1F.h"
 #include "TH2F.h"
 #include "TUnfoldDensity.h"
+#include <TString.h>
+#include "TStopwatch.h"
+#include "TH1F.h"
 
 #include "../include/helpers.hpp"
 #include "../include/TreeToClasses.hpp"
@@ -10,6 +13,9 @@
 #include "TMVA/Factory.h"
 #include "TMVA/TMVAGui.h"
 #include "TMVA/Tools.h"
+#include "TMVA/Reader.h"
+#include "TMVA/TMVAMultiClassGui.h"
+
 
 using namespace std;
 
@@ -17,6 +23,7 @@ int
 main(int argc, char* argv[])
 {
 	// Reset Output ROOTFILE
+	std::string arg = argv[1];
 	std::remove("output.root");
 	TFile* histofile = new TFile("histofile.root", "open");
 	TH1F* Gen = (TH1F*)histofile->Get("h_Gen");
@@ -29,122 +36,197 @@ main(int argc, char* argv[])
 
 	TH2F* MigrationMatrix = (TH2F*)histofile->Get("MigrationMatrix");
 	Draw2D(MigrationMatrix, "MigrationMatrix", true, "Reco", "Gen");
-	int nBins_Gen = MigrationMatrix->GetNbinsY();
 
-	if (argc < 2) {
+	int nBins_Gen = MigrationMatrix->GetNbinsY();
+	histofile->Close();
+
+	int nBins = 10;
+	int xmin = 0;
+	int xmax = 1000;
+	int bindwidth = (xmax - xmin) / nBins;
+
+
+	if (arg == "train") {
 		cout << "Unfolding using ML Techniques" << endl;
 		TFile* inFile = TFile::Open("TreeFile.root", "OPEN");
 		TChain* chain = (TChain*) inFile->Get("Tree");
 
-		TreeToClasses treeToClasses = TreeToClasses(chain, {"Gen"},{"Reco"}, {10}, {{0, 1000}, {0, 1000}});
+		TreeToClasses treeToClasses = TreeToClasses(chain, {"Gen"}, {"Reco", "Gen"}, {nBins}, {{xmin, xmax}, {xmin, xmax}});
 		treeToClasses.BinVars();
 
-
-
+		// This loads the library
 		TMVA::Tools::Instance();
-		bool batchMode = false;
 
-		// Create a ROOT output file where TMVA will store ntuples, histograms, etc.
-		TString outfileName("TMVA.root");
-		TFile* outputFile = TFile::Open(outfileName, "RECREATE");
+		// Create a new root output file.
+		TString outfileName = "TMVAMulticlass.root";
+		TFile* outputFile = TFile::Open( outfileName, "RECREATE" );
 
-		std::string factoryOptions( "!V:!Silent:Transformations=I;D;P;G,D" );
-		if (batchMode) factoryOptions += ":!Color:!DrawProgressBar";
-		TMVA::Factory *factory = new TMVA::Factory( "TMVAClassificationCategory", outputFile, factoryOptions );
+		TMVA::Factory *factory = new TMVA::Factory( "TMVAMulticlass", outputFile,
+		        "V=True:!Silent:Color:DrawProgressBar:Transformations=:AnalysisType=multiclass" );
 		// Create DataLoader
 		TMVA::DataLoader *dataloader = new TMVA::DataLoader("dataset");
 		// Define the input variables used for the MVA training
+		dataloader->AddVariable( "Reco", 'F' );
 
-		//Spectators
-		//dataloader->AddSpectator("Reco_classes", 'F');
-		//dataloader->AddSpectator("Gen_classes", 'F');
+		// Load the signal and background event samples from ROOT trees
+		TFile *input(0);
+		TString fname = TString("classes.root");
+		input = TFile::Open( fname );
 
-		// Read training and test data
-		// (it is also possible to use ASCII format as input -> see TMVA Users
-		// Guide)
-		TString fname = "classes.root";
-		TFile* input = TFile::Open(fname);
+		TTree *Tree  = (TTree*)input->Get("UnfoldTree");
 
-		std::cout << "--- TMVAClassification : Using input file: "
-		          << input->GetName() << std::endl;
+		gROOT->cd( outfileName + TString(":/") );
+		for (unsigned int i = 1; i <= nBins; i++) {
+			TString index = std::to_string(i);
+			dataloader->AddTree(Tree, "Bin" + index, 1.0, TCut("Gen_classes ==" + index));
+		}
 
-		// --- Register the training and test trees
-
-		TTree* signalTree = (TTree*)input->Get("Gen");
-		TTree* backgroundTree = (TTree*)input->Get("Reco");
-
-		dataloader->AddSignalTree(signalTree);
-		dataloader->AddBackgroundTree(backgroundTree);
+		dataloader->PrepareTrainingAndTestTree( "", "SplitMode=Random:NormMode=NumEvents:!V" );
 
 		// General layout.
-		TString layoutString("Layout=TANH|128,TANH|10,LINEAR");
+		TString layoutString("Layout=TANH|100,TANH|10,LINEAR");
 		// Training strategies.
-		TString training0("LearningRate=1e-1,Momentum=0.9,Repetitions=1,"
+		TString training0("LearningRate=1e-1,Momentum=0.9,Repetitions=10,"
 		                  "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
 		                  "WeightDecay=1e-4,Regularization=L2,"
-		                  "DropConfig=0.0+0.5+0.5+0.5, Multithreading=True");
-		TString training1("LearningRate=1e-2,Momentum=0.9,Repetitions=1,"
+		                  "DropConfig=0.0+0.5+0.5, Multithreading=True");
+		TString training1("LearningRate=1e-4,Momentum=0.9,Repetitions=10,"
 		                  "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
 		                  "WeightDecay=1e-4,Regularization=L2,"
-		                  "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True");
-		TString training2("LearningRate=1e-3,Momentum=0.0,Repetitions=1,"
+		                  "DropConfig=0.0+0.0+0.0, Multithreading=True");
+		TString training2("LearningRate=1e-4,Momentum=0.0,Repetitions=10,"
 		                  "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
 		                  "WeightDecay=1e-4,Regularization=L2,"
-		                  "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True");
+		                  "DropConfig=0.0+0.0+0.0, Multithreading=True");
 		TString trainingStrategyString("TrainingStrategy=");
 		trainingStrategyString += training0 + "|" + training1 + "|" + training2;
-		// General Options.
-		TString dnnOptions("!H:V:ErrorStrategy=CROSSENTROPY:VarTransform=N:"
-		                   "WeightInitialization=XAVIERUNIFORM");
-		dnnOptions.Append(":");
-		dnnOptions.Append(layoutString);
-		dnnOptions.Append(":");
-		dnnOptions.Append(trainingStrategyString);
-		// Standard implementation, no dependencies.
-		TString stdOptions = dnnOptions + ":Architecture=STANDARD";
-		// factory->BookMethod(dataloader, TMVA::Types::kDNN, "DNN", stdOptions);
-		// Cuda implementation.
-		TString gpuOptions = dnnOptions + ":Architecture=GPU";
-		//factory->BookMethod(dataloader, TMVA::Types::kDNN, "DNN GPU", gpuOptions);
-		// Multi-core CPU implementation.
-		TString cpuOptions = dnnOptions + ":Architecture=CPU";
-		factory->BookMethod(dataloader, TMVA::Types::kDNN, "DNN CPU", cpuOptions);
+		TString nnOptions("H=True:V=True:ErrorStrategy=CROSSENTROPY:VarTransform=N:"
+		                  "WeightInitialization=XAVIERUNIFORM");
+		nnOptions.Append(":");
+		nnOptions.Append(layoutString);
+		nnOptions.Append(":");
+		nnOptions.Append(trainingStrategyString);
 
-		// For an example of the category classifier usage, see:
-		// TMVAClassificationCategory
-		//
-		// --------------------------------------------------------------------------------------------------
-		//  Now you can optimize the setting (configuration) of the MVAs using the
-		//  set of training events
-		// STILL EXPERIMENTAL and only implemented for BDT's !
-		//
-		//     factory->OptimizeAllMethods("SigEffAt001","Scan");
-		//     factory->OptimizeAllMethods("ROCIntegral","FitGA");
-		//
-		// --------------------------------------------------------------------------------------------------
-		// Now you can tell the factory to train, test, and evaluate the MVAs
-		//
+		// Cuda implementation.
+		TString gpuOptions = nnOptions + ":Architecture=GPU";
+		factory->BookMethod(dataloader, TMVA::Types::kDNN, "DNN_GPU", gpuOptions);
+
+		// Multi-core CPU implementation.
+		// TString cpuOptions = dnnOptions + ":Architecture=CPU";
+		// factory->BookMethod(dataloader, TMVA::Types::kDNN, "DNN CPU", cpuOptions);
+
+
 		// Train MVAs using the set of training events
-		// factory->TrainAllMethods();
+		factory->TrainAllMethods();
+
 		// Evaluate all MVAs using the set of test events
-		// factory->TestAllMethods();
+		factory->TestAllMethods();
+
 		// Evaluate and compare performance of all configured MVAs
-		// factory->EvaluateAllMethods();
+		factory->EvaluateAllMethods();
+
 		// --------------------------------------------------------------
+
 		// Save the output
 		outputFile->Close();
+
 		std::cout << "==> Wrote root file: " << outputFile->GetName() << std::endl;
-		std::cout << "==> TMVAClassification is done!" << std::endl;
+		std::cout << "==> TMVAMulticlass is done!" << std::endl;
+
 		delete factory;
 		delete dataloader;
+
 		// Launch the GUI for the root macros
-		// if (!gROOT->IsBatch())
-		// TMVA::TMVAGui(outfileName);
-		return 0;
+		// if (!gROOT->IsBatch()) TMVAMultiClassGui( outfileName );
+
+		// Launch the GUI for the root macros
+		// gROOT->SetBatch(false);
+		// if (!gROOT->IsBatch()) {
+		// 	gROOT->ProcessLine("TMVA::TMVAGui()");
+		// 	do
+		// 	{
+		// 		cout << '\n' << "Press a key to continue...";
+		// 	} while (cin.get() != '\n');
+		// }
+	}
+	if (arg == "predict") {
+
+		std::cout << "apply Network" << std::endl;
+
+		// create the Reader object
+		TMVA::Reader *reader = new TMVA::Reader( "!Color:!Silent" );
+		// create a set of variables and declare them to the reader
+		// - the variable names must corresponds in name and type to
+		// those given in the weight file(s) that you use
+		Float_t Reco;
+		Float_t Gen;
+
+		reader->AddVariable( "Reco", &Reco );
+		// book the MVA methods
+		TString dir    = "dataset/weights/";
+		TString prefix = "TMVAMulticlass";
+		TString methodName = TString("DNN_GPU");
+		TString weightfile = dir + prefix + TString("_") + methodName + TString(".weights.xml");
+		reader->BookMVA( methodName, weightfile );
+		// // book output histograms
+		TH1F *h_RecoPred = new TH1F( "DNN_GPU_Reco",    "DNN_GPU_Reco",    nBins, xmin, xmax );
+		h_RecoPred->Sumw2();
+		TH1F *h_Gen = new TH1F( "GenDNN",    "GenDNN",    nBins, xmin, xmax );
+		h_Gen->Sumw2();
+
+		TFile *input(0);
+		TString fname = "./TreeFile.root";
+		if (!gSystem->AccessPathName( fname )) {
+			input = TFile::Open( fname ); // check if file in local directory exists
+		}
+		if (!input) {
+			std::cout << "ERROR: could not open data file, please generate example data first!" << std::endl;
+			exit(1);
+		}
+		std::cout << "--- TMVAMulticlassApp : Using input file: " << input->GetName() << std::endl;
+		// // prepare the tree
+		// // - here the variable names have to corresponds to your tree
+		// // - you can use the same variables as above which is slightly faster,
+		// //   but of course you can use different ones and copy the values inside the event loop
+		TTree* theTree = (TTree*)input->Get("Tree");
+		theTree->SetBranchAddress( "data", &Reco );
+		theTree->SetBranchAddress( "dataGen", &Gen );
+
+		std::cout << "--- Processing: " << theTree->GetEntries() << " events" << std::endl;
+		TStopwatch sw;
+		sw.Start();
+		for (Long64_t ievt = 0; ievt < theTree->GetEntries(); ievt++) {
+			if (ievt % 10000 == 0) {
+				std::cout << "--- ... Processing event: " << ievt << std::endl;
+			}
+			theTree->GetEntry(ievt);
+			std::vector<float> pred = reader->EvaluateMulticlass( "DNN_GPU" );
+			// for (auto& pr : pred) {
+				// std::cout << pr << std::endl;
+			// }
+			auto predclass =  max_element (pred.begin(), pred.end());
+			auto pos = std::distance(pred.begin(), predclass); 
+			std::cout << pos << std::endl;
+
+			h_RecoPred->Fill((pos) * bindwidth);
+			h_Gen->Fill(Gen);
+		}
+		// // get elapsed time
+		sw.Stop();
+		std::cout << "--- End of event loop: "; sw.Print();
+		TFile *histofile  = new TFile( "histofile.root", "UPDATE" );
+		h_RecoPred->Write();
+		h_Gen->Write();
+		histofile->Close();
+		delete reader;
+		std::cout << "==> TMVAClassificationApplication is done!" << std::endl << std::endl;
+		DrawDataMC(h_RecoPred, { h_Gen }, { "Gen" }, "PredvsGen", false, false, "Pt", "#events");
+
+
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	if (argc >= 2) {
+	if (arg == "t") {
 		cout << "Unfolding using TUnfold" << endl;
 		int xmin = 0;
 		int xmax = 1000;

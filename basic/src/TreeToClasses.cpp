@@ -8,10 +8,11 @@ TreeToClasses::TreeToClasses(TChain* InChain, std::vector<std::string> genvars, 
 	genVars = genvars;
 	recoVars = recovars;
 	ranges = Ranges;
-	for (auto& bin : nbins) nBins.push_back(bin + 1);
+	for (auto& bin : nbins) nBins.push_back(bin+1);
 }
 
 TFile* TreeToClasses::BinVars() {
+	std::cout << "converting GenDistribution to Classes" << std::endl;
 	TFile* classfile = new TFile("classes.root", "RECREATE");
 	TTreeReader theReader(chain);
 
@@ -19,24 +20,20 @@ TFile* TreeToClasses::BinVars() {
 	std::vector<TTreeReaderValue<Float_t>> GenValues;
 	std::vector<TTreeReaderValue<Float_t>> RecoValues;
 	std::vector<int> classvalsGen(genVars.size());
-	std::vector<std::vector<Float_t> > classvalsReco(genVars.size(), std::vector<Float_t> (nBins.at(0)));
+	std::vector<Float_t> classvalsReco(genVars.size());
 	std::vector<int> binWidths;
-	TTree* GenTree = new TTree("Gen", "Gen");
-	TTree* RecoTree = new TTree("Reco", "Reco");
+	TTree* Tree = new TTree("UnfoldTree", "UnfoldTree");
 
 	int i = 0;
 	for (auto const& genName : genVars) { //index i
 		GenValues.push_back(TTreeReaderValue<Float_t>(theReader, genName.c_str()));
-		TBranch *branch = GenTree->Branch((genName + "_classes").c_str(), &classvalsGen.at(i), (genName + "_classes" + "/I").c_str());
+		TBranch *branch = Tree->Branch((genName + "_classes").c_str(), &classvalsGen.at(i), (genName + "_classes" + "/I").c_str());
 		binWidths.push_back((ranges[i][1] - ranges[i][0]) / nBins[i]);
-		int k = 0;
 
+		int k = 0;
 		for (auto const& recoName : recoVars) { //index k
 			RecoValues.push_back(TTreeReaderValue<Float_t>(theReader, recoName.c_str()));
-			for (unsigned int j = 0; j < nBins.at(i); j++) {
-				TBranch *branch = RecoTree->Branch((recoName + "_class" + std::to_string(j)).c_str(), &classvalsReco[i][j], (recoName + "_class" + std::to_string(j) + "/F").c_str());
-			}
-			binWidths.push_back((ranges[i][1] - ranges[i][0]) / nBins[i]);
+			TBranch *branch = Tree->Branch((recoName).c_str(), &classvalsReco[k], (recoName + "/F").c_str());
 			k++;
 		}
 		i++;
@@ -46,24 +43,22 @@ TFile* TreeToClasses::BinVars() {
 
 	while (theReader.Next()) {
 		for (unsigned int i = 0; i < GenValues.size(); i++) {
-			// std::cout << *values.at(i) << std::endl;
-			int classnumber = int(*GenValues.at(i)) / binWidths.at(i) + 1;
-			//std::cout << vars.at(i)  << *values.at(i) << " in bin: " << tmp << std::endl;
+			int classnumber = int(*GenValues.at(i) / binWidths.at(i) )+1;
+			// std::cout <<  *GenValues.at(i) << " in bin: " << classnumber << std::endl;
 			classvalsGen.at(i) = classnumber;
 
 			for (unsigned int j = 0; j < RecoValues.size(); j++) {
-				Float_t tmp = (*RecoValues.at(i)) ;
-				classvalsReco[i][classnumber] = tmp;
+				Float_t tmp = (*RecoValues.at(j)) ;
+				classvalsReco[j] = tmp;
 			}
 		}
 
-		GenTree->Fill();
-		RecoTree->Fill();
+		Tree->Fill();
 	}
+	Tree->Write();
 
-	GenTree->Write();
-	RecoTree->Write();
 	classfile->Close();
+	std::cout << "converted Gen Distribution to Classes" << std::endl;
 	return classfile;
 
 
